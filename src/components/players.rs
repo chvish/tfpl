@@ -1,3 +1,4 @@
+use std::ops::Index;
 use super::{Component, Frame};
 use color_eyre::eyre::Result;
 use ratatui::{prelude::*, widgets::*};
@@ -8,12 +9,14 @@ use crate::{
   action::Action,
   config::{Config, KeyBindings},
 };
+use crate::components::player_card::PlayerCard;
 
 #[derive(Default)]
 pub struct Players {
   command_tx: Option<UnboundedSender<Action>>,
   config: Config,
     category: String,
+    players: Vec<PlayerCard>
 }
 
 impl Players {
@@ -22,6 +25,12 @@ impl Players {
             command_tx: None,
             config: Default::default(),
             category: category,
+            players: vec![
+                PlayerCard::new("Player A".to_string(), "Team A".to_string(), 10),
+                PlayerCard::new("Player A".to_string(), "Team A".to_string(), 10),
+                PlayerCard::new("Player A".to_string(), "Team A".to_string(), 10),
+                PlayerCard::new("Player A".to_string(), "Team A".to_string(), 10),
+            ]
         }
     }
 }
@@ -47,6 +56,15 @@ impl Component for Players {
   }
 
   fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
+      let player_layout = Layout::default().direction(Direction::Horizontal).constraints([
+          Constraint::Percentage(25),
+          Constraint::Percentage(25),
+          Constraint::Percentage(25),
+          Constraint::Percentage(25),
+      ]).split(area);
+      for i in 0..self.players.len() {
+          self.players[i].draw(f, player_layout[i]);
+      }
       f.render_widget(Block::new().borders(Borders::ALL).title(self.category.clone()).title_style(Style::new().bg(Color::LightBlue)), area);
     Ok(())
   }
