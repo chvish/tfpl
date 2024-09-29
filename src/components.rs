@@ -1,6 +1,6 @@
 use color_eyre::eyre::Result;
 use crossterm::event::{KeyEvent, MouseEvent};
-use ratatui::layout::Rect;
+use ratatui::layout::{Rect, Size};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
@@ -12,6 +12,7 @@ use crate::{
 pub mod fps;
 pub mod home;
 pub mod players;
+mod player_card;
 
 /// `Component` is a trait that represents a visual and interactive element of the user interface.
 /// Implementors of this trait can be registered with the main application loop and will be able to receive events,
@@ -52,7 +53,7 @@ pub trait Component {
   /// # Returns
   ///
   /// * `Result<()>` - An Ok result or an error.
-  fn init(&mut self, area: Rect) -> Result<()> {
+  fn init(&mut self, area: Size) -> Result<()> {
     Ok(())
   }
   /// Handle incoming events and produce actions if necessary.

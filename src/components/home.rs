@@ -70,7 +70,8 @@ impl Component for Home {
       ]).split(area);
     let banner = BigTextBuilder::default()
         .pixel_size(PixelSize::Sextant)
-        .lines([format!("{}.", env!("CARGO_PKG_NAME")).into()])
+        .lines(vec!["Terminal".into(), "FPL".into()])
+        .centered()
         .build();
       f.render_widget(banner, overall_layout[0] );
     let layouts = Layout::default().direction(Direction::Vertical)
@@ -81,9 +82,9 @@ impl Component for Home {
                        Constraint::Percentage(10),
           ])
           .split(overall_layout[1]);
-    self.defenders.draw(f, layouts[0]);
-    self.midfielders.draw(f, layouts[1]);
-    self.forwards.draw(f, layouts[2]);
+    self.defenders.draw(f, layouts[0])?;
+    self.midfielders.draw(f, layouts[1])?;
+    self.forwards.draw(f, layouts[2])?;
     f.render_widget(Block::new().borders(Borders::ALL).title("Bench"), layouts[3]);
     Ok(())
   }
