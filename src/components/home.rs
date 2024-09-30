@@ -29,9 +29,9 @@ impl Home {
     Home {
       command_tx: None,
       config: Default::default(),
-      defenders: Players::new("Defenders".to_string()),
-      midfielders: Players::new("Midfielders".to_string()),
-      forwards: Players::new("Forwards".to_string()),
+      defenders: Players::new("DEFENDERS".to_string()),
+      midfielders: Players::new("MIDFIELDERS".to_string()),
+      forwards: Players::new("FORWARDS".to_string()),
       bench: Default::default(),
     }
   }

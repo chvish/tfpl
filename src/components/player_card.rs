@@ -57,7 +57,7 @@ impl Component for PlayerCard {
               Line::raw(self.team.clone()),
               Line::raw(self.points.to_string()),
           ]
-      ).block(Block::default().borders(Borders::ALL)).alignment(Alignment::Center);
+      ).block(Block::default().borders(Borders::ALL).padding(Padding::new(0, 0, 1, 1))).alignment(Alignment::Center);
       f.render_widget(p, area);
     Ok(())
   }

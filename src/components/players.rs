@@ -61,11 +61,11 @@ impl Component for Players {
           Constraint::Percentage(25),
           Constraint::Percentage(25),
           Constraint::Percentage(25),
-      ]).split(area);
+      ]).margin(1).split(area);
       for i in 0..self.players.len() {
           self.players[i].draw(f, player_layout[i]);
       }
-      f.render_widget(Block::new().borders(Borders::ALL).title(self.category.clone()).title_style(Style::new().bg(Color::LightBlue)), area);
+      f.render_widget(Block::new().borders(Borders::ALL).title(self.category.clone()).title_style(Style::new().bg(Color::Indexed(125 as u8))), area);
     Ok(())
   }
 }
