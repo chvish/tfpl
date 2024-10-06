@@ -17,6 +17,8 @@ config = "0.14.0"
 crossterm = { version = "0.27.0", features = ["serde", "event-stream"] }
 derive_deref = "1.1.1"
 directories = "5.0.1"
+emojis = "0.6.4"
+fpl_api = "0.2.0"
 futures = "0.3.28"
 human-panic = "1.2.0"
 json5 = "0.4.1"
@@ -30,6 +32,7 @@ serde_json = "1.0.107"
 signal-hook = "0.3.17"
 strip-ansi-escapes = "0.2.0"
 strum = { version = "0.26.1", features = ["derive"] }
+thousands = "0.2.0"
 tokio = { version = "1.32.0", features = ["full"] }
 tokio-util = "0.7.9"
 tracing = "0.1.37"
