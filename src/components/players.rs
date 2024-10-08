@@ -18,21 +18,51 @@ pub struct Players {
     command_tx: Option<UnboundedSender<Action>>,
     config: Config,
     category: String,
-    players: Vec<PlayerCard>,
+    // TODO: better api
+    pub players: Vec<PlayerCard>,
 }
 
 impl Players {
-    pub fn new(category: String) -> Self {
-        Players {
-            command_tx: None,
-            config: Default::default(),
-            category,
-            players: vec![
-                PlayerCard::new("Player A".to_string(), "Team A".to_string(), 10),
-                PlayerCard::new("Player A".to_string(), "Team A".to_string(), 10),
-                PlayerCard::new("Player A".to_string(), "Team A".to_string(), 10),
-                PlayerCard::new("Player A".to_string(), "Team A".to_string(), 10),
-            ],
+    pub fn new(category: String, players: Vec<PlayerCard>) -> Self {
+        Players { command_tx: None, config: Default::default(), category, players }
+    }
+}
+
+impl Players {
+    fn get_contraints_and_start_pos(&self, num_player: usize) -> (Vec<Constraint>, usize) {
+        match num_player {
+            1 | 3 | 5 => {
+                (
+                    vec![
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(20),
+                    ],
+                    match num_player {
+                        5 => 0,
+                        3 => 1,
+                        _ => 2,
+                    },
+                )
+            },
+            _ => {
+                (
+                    vec![
+                        Constraint::Percentage(10),
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(10),
+                    ],
+                    match num_player {
+                        4 => 1,
+                        _ => 2,
+                    },
+                )
+            },
         }
     }
 }
@@ -57,26 +87,12 @@ impl Component for Players {
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
-        let player_layout = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(25),
-                Constraint::Percentage(25),
-                Constraint::Percentage(25),
-                Constraint::Percentage(25),
-            ])
-            .margin(1)
-            .split(area);
+        let design = self.get_contraints_and_start_pos(self.players.len());
+        let player_layout =
+            Layout::default().direction(Direction::Horizontal).constraints(design.0).margin(1).split(area);
         for i in 0..self.players.len() {
-            self.players[i].draw(f, player_layout[i]);
+            self.players[i].draw(f, player_layout[design.1 + i as usize]);
         }
-        f.render_widget(
-            Block::new()
-                .borders(Borders::ALL)
-                .title(self.category.clone())
-                .title_style(Style::new().bg(Color::Indexed(125 as u8))),
-            area,
-        );
         Ok(())
     }
 }

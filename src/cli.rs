@@ -25,11 +25,6 @@ pub struct Cli {
     )]
     pub frame_rate: f64,
 
-    #[arg(
-        short,
-        long,
-        value_name = "ID",
-        help = "Manager Id",
-    )]
+    #[arg(short, long, value_name = "ID", help = "Manager Id")]
     pub manager_id: String,
 }

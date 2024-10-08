@@ -1,5 +1,5 @@
 use color_eyre::eyre::Result;
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyCode, KeyEvent};
 use fpl_api;
 use ratatui::prelude::Rect;
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,7 @@ impl App {
         let bootstrap_data = fpl_client.get_bootstrap_data().await?;
         let manager = fpl_client.get_manager_details(&player_id).await?;
         let gw_picks = fpl_client.get_manager_team_for_gw(&player_id, &manager.current_event.to_string()).await?;
-        let home = Home::new(manager, bootstrap_data.clone(), gw_details);
+        let home = Home::new(manager, bootstrap_data.clone(), gw_picks);
         Ok(Self {
             tick_rate,
             frame_rate,
@@ -77,22 +77,16 @@ impl App {
                     tui::Event::Render => action_tx.send(Action::Render)?,
                     tui::Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
                     tui::Event::Key(key) => {
-                        if let Some(keymap) = self.config.keybindings.get(&self.mode) {
-                            if let Some(action) = keymap.get(&vec![key]) {
-                                log::info!("Got action: {action:?}");
-                                action_tx.send(action.clone())?;
-                            } else {
-                                // If the key was not handled as a single key action,
-                                // then consider it for multi-key combinations.
-                                self.last_tick_key_events.push(key);
+                        match key.code {
+                            KeyCode::Left => action_tx.send(Action::Left)?,
+                            KeyCode::Right => action_tx.send(Action::Right)?,
+                            KeyCode::Up => action_tx.send(Action::Up)?,
+                            KeyCode::Down => action_tx.send(Action::Down)?,
+                            KeyCode::Char('q')=> action_tx.send(Action::Quit)?,
+                            _ => {},
+                            
+                        }
 
-                                // Check for multi-key combinations
-                                if let Some(action) = keymap.get(&self.last_tick_key_events) {
-                                    log::info!("Got action: {action:?}");
-                                    action_tx.send(action.clone())?;
-                                }
-                            }
-                        };
                     },
                     _ => {},
                 }
