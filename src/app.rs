@@ -82,11 +82,9 @@ impl App {
                             KeyCode::Right => action_tx.send(Action::Right)?,
                             KeyCode::Up => action_tx.send(Action::Up)?,
                             KeyCode::Down => action_tx.send(Action::Down)?,
-                            KeyCode::Char('q')=> action_tx.send(Action::Quit)?,
+                            KeyCode::Char('q') => action_tx.send(Action::Quit)?,
                             _ => {},
-                            
                         }
-
                     },
                     _ => {},
                 }

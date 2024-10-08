@@ -20,7 +20,7 @@ pub struct Home {
     // TODO: do i need this? can just keep a vector of players
     picked_players: [Players; 5],
     manager_summary: ManagerSummary,
-    active_player_coordinate: (usize, usize)
+    active_player_coordinate: (usize, usize),
 }
 
 impl Home {
@@ -39,7 +39,7 @@ impl Home {
                 m.insert(p.id, p.clone());
                 m
             });
-        let picked_players: (Vec<PlayerCard>,Vec<PlayerCard>,Vec<PlayerCard>,Vec<PlayerCard>, Vec<PlayerCard>) =
+        let picked_players: (Vec<PlayerCard>, Vec<PlayerCard>, Vec<PlayerCard>, Vec<PlayerCard>, Vec<PlayerCard>) =
             gw_picks.picks.iter().fold((Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new()), |mut li, p| {
                 let player_detail = player_id_to_details.get(&p.element).unwrap(); // TODO: handle. but should never happen
                 let pc = PlayerCard::new(
@@ -69,19 +69,19 @@ impl Home {
                 Players::new("Bench".to_string(), picked_players.4),
             ],
             manager_summary: ManagerSummary::new(manager),
-            active_player_coordinate
+            active_player_coordinate,
         }
     }
+
     fn mark_player_active_state(&mut self, coordinate: (usize, usize), state: bool) {
-                self.picked_players[coordinate.0].players.get_mut(coordinate.1).map(|x| x.mark_active(state));
+        self.picked_players[coordinate.0].players.get_mut(coordinate.1).map(|x| x.mark_active(state));
     }
 
     fn update_player_active(&mut self, old: (usize, usize)) {
-        // TODO: this is  becoming a bit gnarly. would it not be better to just 
+        // TODO: this is  becoming a bit gnarly. would it not be better to just
         // have one state and draw that, this component thing is getting complicated
         self.mark_player_active_state(old, false);
         self.mark_player_active_state(self.active_player_coordinate, true);
-
     }
 }
 
@@ -101,36 +101,38 @@ impl Component for Home {
             Action::Tick => {},
             Action::Right => {
                 let old = self.active_player_coordinate;
-                if self.picked_players[self.active_player_coordinate.0].players.len() != self.active_player_coordinate.1 +1 {
+                if self.picked_players[self.active_player_coordinate.0].players.len()
+                    != self.active_player_coordinate.1 + 1
+                {
                     self.active_player_coordinate.1 += 1;
                 }
                 self.update_player_active(old);
-            }
+            },
             Action::Left => {
                 let old = self.active_player_coordinate;
-                if self.active_player_coordinate.1 != 0 { 
+                if self.active_player_coordinate.1 != 0 {
                     self.active_player_coordinate.1 -= 1;
                 }
                 self.update_player_active(old);
-            }
+            },
             Action::Up => {
                 let old = self.active_player_coordinate;
                 self.active_player_coordinate.0 = match self.active_player_coordinate.0 {
                     0 => 0,
-                    _ => self.active_player_coordinate.0 - 1
+                    _ => self.active_player_coordinate.0 - 1,
                 };
                 self.active_player_coordinate.1 = 0;
                 self.update_player_active(old);
-            }
+            },
             Action::Down => {
                 let old = self.active_player_coordinate;
                 self.active_player_coordinate.0 = match self.active_player_coordinate.0 {
                     3 => 3,
-                    _ => self.active_player_coordinate.0 + 1
+                    _ => self.active_player_coordinate.0 + 1,
                 };
                 self.active_player_coordinate.1 = 0;
                 self.update_player_active(old);
-            }
+            },
             _ => {},
         }
         Ok(None)
