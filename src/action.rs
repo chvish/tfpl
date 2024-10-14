@@ -19,6 +19,8 @@ pub enum Action {
     Left,
     Right,
     Refresh,
+    Enter,
+    Escape,
     Error(String),
     Help,
 }

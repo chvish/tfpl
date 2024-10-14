@@ -2,6 +2,7 @@ use color_eyre::eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use fpl_api;
 use ratatui::prelude::Rect;
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
@@ -35,7 +36,19 @@ impl App {
         let bootstrap_data = fpl_client.get_bootstrap_data().await?;
         let manager = fpl_client.get_manager_details(&player_id).await?;
         let gw_picks = fpl_client.get_manager_team_for_gw(&player_id, &manager.current_event.to_string()).await?;
-        let home = Home::new(manager, bootstrap_data.clone(), gw_picks);
+
+        // Should use Picker::from_termios(), to get the font size,
+        // but we can't put that here because that would break doctests!
+        let mut picker = Picker::from_termios().unwrap();
+        // Guess the protocol.
+        picker.guess_protocol();
+        // Load an image with the image crate.
+        let dyn_img = image::io::Reader::open("./p223094.png")?.decode()?;
+
+        // Create the Protocol which will be used by the widget.
+        let mut image2 = picker.new_resize_protocol(dyn_img);
+
+        let home = Home::new(manager, bootstrap_data.clone(), gw_picks, image2);
         Ok(Self {
             tick_rate,
             frame_rate,
@@ -78,6 +91,8 @@ impl App {
                     tui::Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
                     tui::Event::Key(key) => {
                         match key.code {
+                            KeyCode::Enter => action_tx.send(Action::Enter)?,
+                            KeyCode::Esc => action_tx.send(Action::Escape)?,
                             KeyCode::Left => action_tx.send(Action::Left)?,
                             KeyCode::Right => action_tx.send(Action::Right)?,
                             KeyCode::Up => action_tx.send(Action::Up)?,
