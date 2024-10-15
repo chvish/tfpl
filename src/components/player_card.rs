@@ -61,7 +61,7 @@ impl BigPlayerCard {
             .direction(Direction::Vertical)
             .split(area);
         let image_layput = Layout::default()
-            .constraints([Constraint::Length(30), Constraint::Fill(1)])
+            .constraints([Constraint::Fill(1), Constraint::Length(12), Constraint::Fill(1)])
             .direction(Direction::Horizontal)
             .split(layouts[1])[1];
         f.render_widget(Clear, area);

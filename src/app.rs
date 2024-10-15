@@ -121,6 +121,10 @@ impl App {
                     Action::Quit => self.should_quit = true,
                     Action::Suspend => self.should_suspend = true,
                     Action::Resume => self.should_suspend = false,
+                    Action::GetPlayerImage(player_code) => {
+                        //TODO
+                        ()
+                    }
                     Action::Resize(w, h) => {
                         tui.resize(Rect::new(0, 0, w, h))?;
                         tui.draw(|f| {

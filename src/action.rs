@@ -23,4 +23,5 @@ pub enum Action {
     Escape,
     Error(String),
     Help,
+    GetPlayerImage(u64),
 }

@@ -191,18 +191,12 @@ impl Component for Home {
         if self.show_player_big {
             let card_layout =
                 Layout::default().constraints([Constraint::Percentage(100)]).margin(4).split(overall_layout[1])[0];
-            // let sized_paragraph = SizedWrapper {
-            //     inner: self.picked_players[self.active_player_coordinate.0].players.get(self.active_player_coordinate.1).unwrap().get_player_big_widget(),
-            //     width: overall_layout[1].width  as usize,
-            //     height: 10,
-            //
-            // };
             let mut bw = self.picked_players[self.active_player_coordinate.0]
                 .players
                 .get(self.active_player_coordinate.1)
                 .unwrap()
                 .get_player_big_widget();
-            bw.draw(f, card_layout);
+            bw.draw(f, card_layout)?;
         }
         Ok(())
     }
