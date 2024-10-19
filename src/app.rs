@@ -8,6 +8,7 @@ use tokio::sync::mpsc;
 
 use crate::{
     action::Action,
+    event::Event,
     components::{fps::FpsCounter, home::Home, Component},
     config::Config,
     mode::Mode,
@@ -65,8 +66,9 @@ impl App {
 
     pub async fn run(&mut self) -> Result<()> {
         let (action_tx, mut action_rx) = mpsc::unbounded_channel();
+        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
 
-        let mut tui = tui::Tui::new()?.tick_rate(self.tick_rate).frame_rate(self.frame_rate);
+        let mut tui = tui::Tui::new(event_tx.clone())?.tick_rate(self.tick_rate).frame_rate(self.frame_rate);
         // tui.mouse(true);
         tui.enter()?;
 
@@ -83,13 +85,13 @@ impl App {
         }
 
         loop {
-            if let Some(e) = tui.next().await {
+            if let Some(e) = event_rx.recv().await {
                 match e {
-                    tui::Event::Quit => action_tx.send(Action::Quit)?,
-                    tui::Event::Tick => action_tx.send(Action::Tick)?,
-                    tui::Event::Render => action_tx.send(Action::Render)?,
-                    tui::Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
-                    tui::Event::Key(key) => {
+                    Event::Quit => action_tx.send(Action::Quit)?,
+                    Event::Tick => action_tx.send(Action::Tick)?,
+                    Event::Render => action_tx.send(Action::Render)?,
+                    Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
+                    Event::Key(key) => {
                         match key.code {
                             KeyCode::Enter => action_tx.send(Action::Enter)?,
                             KeyCode::Esc => action_tx.send(Action::Escape)?,
@@ -157,7 +159,7 @@ impl App {
             if self.should_suspend {
                 tui.suspend()?;
                 action_tx.send(Action::Resume)?;
-                tui = tui::Tui::new()?.tick_rate(self.tick_rate).frame_rate(self.frame_rate);
+                tui = tui::Tui::new(event_tx.clone())?.tick_rate(self.tick_rate).frame_rate(self.frame_rate);
                 // tui.mouse(true);
                 tui.enter()?;
             } else if self.should_quit {

@@ -13,6 +13,7 @@ use crate::{
     action::Action,
     components::{manager_summary::ManagerSummary, player_card::PlayerCard, players::Players},
     config::{Config, KeyBindings},
+    event::Event,
 };
 
 pub struct Home {
@@ -102,10 +103,35 @@ impl Component for Home {
         Ok(())
     }
 
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
-        match action {
-            Action::Tick => {},
-            Action::Right => {
+    fn handle_events(&mut self, event: Option<Event>) -> Result<Option<Action>> {
+        let r = match event {
+            Some(Event::Key(key_event)) => self.handle_key_events(key_event)?,
+            Some(Event::Mouse(mouse_event)) => self.handle_mouse_events(mouse_event)?,
+            _ => None,
+        };
+        Ok(r)
+    }
+
+    fn handle_key_events(&mut self, key: KeyEvent) -> Result<Option<Action>> {
+        match key.code {
+            KeyCode::Enter => {
+                self.show_player_big = true;
+                Ok(None)
+            },
+            KeyCode::Esc => {
+                self.show_player_big = false;
+                Ok(None)
+            },
+
+            KeyCode::Left => {
+                let old = self.active_player_coordinate;
+                if self.active_player_coordinate.1 != 0 {
+                    self.active_player_coordinate.1 -= 1;
+                }
+                self.update_player_active(old);
+                Ok(None)
+            },
+            KeyCode::Right => {
                 let old = self.active_player_coordinate;
                 if self.picked_players[self.active_player_coordinate.0].players.len()
                     != self.active_player_coordinate.1 + 1
@@ -113,21 +139,9 @@ impl Component for Home {
                     self.active_player_coordinate.1 += 1;
                 }
                 self.update_player_active(old);
+                Ok(None)
             },
-            Action::Enter => {
-                self.show_player_big = true;
-            },
-            Action::Escape => {
-                self.show_player_big = false;
-            },
-            Action::Left => {
-                let old = self.active_player_coordinate;
-                if self.active_player_coordinate.1 != 0 {
-                    self.active_player_coordinate.1 -= 1;
-                }
-                self.update_player_active(old);
-            },
-            Action::Up => {
+            KeyCode::Up => {
                 let old = self.active_player_coordinate;
                 self.active_player_coordinate.0 = match self.active_player_coordinate.0 {
                     0 => 0,
@@ -135,8 +149,9 @@ impl Component for Home {
                 };
                 self.active_player_coordinate.1 = 0;
                 self.update_player_active(old);
+                Ok(None)
             },
-            Action::Down => {
+            KeyCode::Down => {
                 let old = self.active_player_coordinate;
                 self.active_player_coordinate.0 = match self.active_player_coordinate.0 {
                     3 => 3,
@@ -144,7 +159,14 @@ impl Component for Home {
                 };
                 self.active_player_coordinate.1 = 0;
                 self.update_player_active(old);
+                Ok(None)
             },
+            _ => Ok(None),
+        }
+    }
+
+    fn update(&mut self, action: Action) -> Result<Option<Action>> {
+        match action {
             _ => {},
         }
         Ok(None)

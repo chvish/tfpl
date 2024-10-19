@@ -20,6 +20,7 @@ use tokio::{
     task::JoinHandle,
 };
 use tokio_util::sync::CancellationToken;
+use crate::event::Event;
 
 pub type IO = std::io::Stderr;
 pub fn io() -> IO {
@@ -27,45 +28,28 @@ pub fn io() -> IO {
 }
 pub type Frame<'a> = ratatui::Frame<'a>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Event {
-    Init,
-    Quit,
-    Error,
-    Closed,
-    Tick,
-    Render,
-    FocusGained,
-    FocusLost,
-    Paste(String),
-    Key(KeyEvent),
-    Mouse(MouseEvent),
-    Resize(u16, u16),
-}
 
 pub struct Tui {
     pub terminal: ratatui::Terminal<Backend<IO>>,
     pub task: JoinHandle<()>,
     pub cancellation_token: CancellationToken,
-    pub event_rx: UnboundedReceiver<Event>,
-    pub event_tx: UnboundedSender<Event>,
     pub frame_rate: f64,
     pub tick_rate: f64,
     pub mouse: bool,
     pub paste: bool,
+    event_tx: UnboundedSender<Event>
 }
 
 impl Tui {
-    pub fn new() -> Result<Self> {
+    pub fn new(event_tx: UnboundedSender<Event>) -> Result<Self> {
         let tick_rate = 4.0;
         let frame_rate = 60.0;
         let terminal = ratatui::Terminal::new(Backend::new(io()))?;
-        let (event_tx, event_rx) = mpsc::unbounded_channel();
         let cancellation_token = CancellationToken::new();
         let task = tokio::spawn(async {});
         let mouse = false;
         let paste = false;
-        Ok(Self { terminal, task, cancellation_token, event_rx, event_tx, frame_rate, tick_rate, mouse, paste })
+        Ok(Self { terminal, task, cancellation_token, frame_rate, tick_rate, mouse, paste, event_tx })
     }
 
     pub fn tick_rate(mut self, tick_rate: f64) -> Self {
@@ -213,9 +197,6 @@ impl Tui {
         Ok(())
     }
 
-    pub async fn next(&mut self) -> Option<Event> {
-        self.event_rx.recv().await
-    }
 }
 
 impl Deref for Tui {

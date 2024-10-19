@@ -3,6 +3,7 @@
 #![allow(unused_variables)]
 
 pub mod action;
+pub mod event;
 pub mod app;
 pub mod cli;
 pub mod components;

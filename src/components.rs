@@ -3,11 +3,7 @@ use crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::layout::{Rect, Size};
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::{
-    action::Action,
-    config::Config,
-    tui::{Event, Frame},
-};
+use crate::{action::Action, config::Config, event::Event, tui::Frame};
 
 pub mod fps;
 pub mod home;
