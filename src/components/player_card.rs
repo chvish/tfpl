@@ -52,7 +52,9 @@ impl PlayerCard {
     }
 
     pub fn has_image(&self) -> bool {
-        self.image_state.is_some()
+        // TODO: figure out why state is being shared
+        false
+        // self.image_state.is_some()
     }
 }
 
@@ -75,7 +77,7 @@ impl PlayerCard {
             Line::from(format!("Points: {}", self.details.event_points)),
             Line::from(format!("Total Goals: {}", self.details.goals_scored)),
             Line::from(format!("Total Assists: {}", self.details.assists)),
-            Line::from(format!("{:x?}", self.debug)),
+            // Line::from(format!("{:x?}", self.debug)),
         ])
         .alignment(Alignment::Center);
 
@@ -85,7 +87,8 @@ impl PlayerCard {
         match self.image_state.as_mut() {
             Some(image) => {
                 let s_image = StatefulImage::new(None).resize(ratatui_image::Resize::Crop(None));
-                f.render_stateful_widget(s_image, image_layput, image);
+                StatefulWidget::render(s_image, image_layput, f.buffer_mut(), image);
+                // f.render_stateful_widget(s_image, image_layput, image);
             },
             _ => (),
         }
