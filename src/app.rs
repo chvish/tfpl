@@ -5,6 +5,10 @@ use ratatui::prelude::Rect;
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::UnboundedSender;
+use image::io::Reader;
+use image::DynamicImage;
+use bytes::Bytes; 
 
 use crate::{
     action::Action,
@@ -28,6 +32,78 @@ pub struct App {
     bootstrap_data: fpl_api::bootstrap::BootstrapData,
 }
 
+fn decode_bytes_to_image(data: Bytes) -> Result<DynamicImage, image::ImageError> {
+    Reader::new(std::io::Cursor::new(data)).with_guessed_format()?.decode()
+}
+
+async fn get_player_image(pc: i64, tx: UnboundedSender<Event>)  {
+    //let dyn_img = image::ImageReader::open("./p223094.png").unwrap().decode().unwrap();
+    // tx.send(Event::PlayerImage(pc, dyn_img));
+    let resp = reqwest::get(format!("https://resources.premierleague.com/premierleague/photos/players/110x140/p{}.png", pc)).await;
+    if let Ok(ok_resp) = resp {
+        if let Ok(bytes) = ok_resp.bytes().await {
+            if let Ok(image) = decode_bytes_to_image(bytes) {
+                tx.send(Event::PlayerImage(pc, image));
+            }
+        }
+    } 
+}
+
+#[cfg(unix)]
+fn get_picker() -> Option<Picker> {
+    Picker::from_termios()
+        .ok()
+        .map(|mut picker| {
+            picker.guess_protocol();
+            picker
+        })
+        // .filter(|picker| picker.protocol_type != ProtocolType::Halfblocks)
+}
+
+#[cfg(target_os = "windows")]
+fn get_picker() -> Option<Picker> {
+    use windows_sys::Win32::System::Console::GetConsoleWindow;
+    use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
+
+    struct FontSize {
+        pub width: u16,
+        pub height: u16,
+    }
+    impl Default for FontSize {
+        fn default() -> Self {
+            FontSize {
+                width: 17,
+                height: 38,
+            }
+        }
+    }
+
+    let size: FontSize = match unsafe { GetDpiForWindow(GetConsoleWindow()) } {
+        96 => FontSize {
+            width: 9,
+            height: 20,
+        },
+        120 => FontSize {
+            width: 12,
+            height: 25,
+        },
+        144 => FontSize {
+            width: 14,
+            height: 32,
+        },
+        _ => FontSize::default(),
+    };
+
+    let mut picker = Picker::new((size.width, size.height));
+
+    let protocol = picker.guess_protocol();
+
+    if protocol == ProtocolType::Halfblocks {
+        return None;
+    }
+    Some(picker)
+}
+
 impl App {
     pub async fn new(tick_rate: f64, frame_rate: f64, player_id: String) -> Result<Self> {
         let fps = FpsCounter::default();
@@ -38,18 +114,16 @@ impl App {
         let manager = fpl_client.get_manager_details(&player_id).await?;
         let gw_picks = fpl_client.get_manager_team_for_gw(&player_id, &manager.current_event.to_string()).await?;
 
-        // Should use Picker::from_termios(), to get the font size,
-        // but we can't put that here because that would break doctests!
-        let mut picker = Picker::from_termios().unwrap();
-        // Guess the protocol.
-        picker.guess_protocol();
+        let mut picker = get_picker(); 
+
+        // TODO
         // Load an image with the image crate.
-        let dyn_img = image::io::Reader::open("./p223094.png")?.decode()?;
+        // let dyn_img = image::ImageReader::open("./p223094.png")?.decode()?;
 
-        // Create the Protocol which will be used by the widget.
-        let mut image2 = picker.new_resize_protocol(dyn_img);
+        // // Create the Protocol which will be used by the widget.
+        // let mut image2 = picker.map( |p| p.new_resize_protocol(dyn_img));
 
-        let home = Home::new(manager, bootstrap_data.clone(), gw_picks, image2);
+        let home = Home::new(manager, bootstrap_data.clone(), gw_picks, picker);
         Ok(Self {
             tick_rate,
             frame_rate,
@@ -93,12 +167,6 @@ impl App {
                     Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
                     Event::Key(key) => {
                         match key.code {
-                            KeyCode::Enter => action_tx.send(Action::Enter)?,
-                            KeyCode::Esc => action_tx.send(Action::Escape)?,
-                            KeyCode::Left => action_tx.send(Action::Left)?,
-                            KeyCode::Right => action_tx.send(Action::Right)?,
-                            KeyCode::Up => action_tx.send(Action::Up)?,
-                            KeyCode::Down => action_tx.send(Action::Down)?,
                             KeyCode::Char('q') => action_tx.send(Action::Quit)?,
                             _ => {},
                         }
@@ -124,8 +192,11 @@ impl App {
                     Action::Suspend => self.should_suspend = true,
                     Action::Resume => self.should_suspend = false,
                     Action::GetPlayerImage(player_code) => {
-                        // TODO
-                        ()
+                        let task_event = event_tx.clone();
+                        tokio::spawn(
+                            get_player_image(player_code, task_event)
+
+                        );
                     },
                     Action::Resize(w, h) => {
                         tui.resize(Rect::new(0, 0, w, h))?;

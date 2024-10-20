@@ -1,7 +1,8 @@
 use crossterm::event::{KeyEvent, KeyEventKind, MouseEvent};
+use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub enum Event {
     Init,
     Quit,
@@ -15,4 +16,5 @@ pub enum Event {
     Key(KeyEvent),
     Mouse(MouseEvent),
     Resize(u16, u16),
+    PlayerImage(i64, DynamicImage),
 }

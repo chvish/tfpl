@@ -38,7 +38,7 @@ impl ManagerSummary {
             Line::from(format!("Overall Rank: {}", self.details.summary_overall_rank.separate_with_commas())),
             Line::from(format!("Overall Points: {}", self.details.summary_overall_points.to_string())),
             Line::from("-------------------------"),
-            Line::from(format!("GW Rank: {}", self.details.summary_event_rank.separate_with_commas())),
+            Line::from(format!("GW Rank: {}", self.details.summary_event_rank.get_or_insert(0).separate_with_commas())),
             Line::styled(
                 format!("GW Points: {}", self.details.summary_event_points.to_string()),
                 Style::default().bg(Color::Indexed(125 as u8)),

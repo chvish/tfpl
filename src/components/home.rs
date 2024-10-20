@@ -3,12 +3,12 @@ use std::{collections::HashMap, time::Duration};
 use color_eyre::eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{layout::Flex, prelude::*, widgets::*};
-use ratatui_image::{protocol::StatefulProtocol, StatefulImage};
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 use tui_big_text::{BigTextBuilder, PixelSize};
 
-use super::{manager_summary, player_card::BigPlayerCard, Component, Frame};
+use super::{manager_summary, Component, Frame};
 use crate::{
     action::Action,
     components::{manager_summary::ManagerSummary, player_card::PlayerCard, players::Players},
@@ -21,7 +21,7 @@ pub struct Home {
     config: Config,
     // TODO: do i need this? can just keep a vector of players
     picked_players: [Players; 5],
-    // big_picked_players: [Vec<BigPlayerCard>; 5],
+    pc_to_picked_players: HashMap<i64, (usize, usize)>,
     manager_summary: ManagerSummary,
     active_player_coordinate: (usize, usize),
     show_player_big: bool,
@@ -32,7 +32,7 @@ impl Home {
         manager: fpl_api::manager::Manager,
         bootstrap_data: fpl_api::bootstrap::BootstrapData,
         gw_picks: fpl_api::manager::GWTeam,
-        image: Box<dyn StatefulProtocol>,
+        picker: Option<Picker>,
     ) -> Self {
         let player_id_to_details: HashMap<i64, fpl_api::bootstrap::Element> =
             bootstrap_data.elements.iter().fold(HashMap::new(), |mut m, p| {
@@ -44,25 +44,50 @@ impl Home {
                 m.insert(p.id, p.clone());
                 m
             });
-        let picked_players: (Vec<PlayerCard>, Vec<PlayerCard>, Vec<PlayerCard>, Vec<PlayerCard>, Vec<PlayerCard>) =
-            gw_picks.picks.iter().fold((Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new()), |mut li, p| {
+        let picked_players: (
+            Vec<PlayerCard>,
+            Vec<PlayerCard>,
+            Vec<PlayerCard>,
+            Vec<PlayerCard>,
+            Vec<PlayerCard>,
+            HashMap<i64, (usize, usize)>,
+        ) = gw_picks.picks.iter().fold(
+            (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), HashMap::new()),
+            |mut li, p| {
                 let player_detail = player_id_to_details.get(&p.element).unwrap(); // TODO: handle. but should never happen
                 let pc = PlayerCard::new(
                     format!("{} {}", player_detail.first_name, player_detail.second_name),
                     team_id_to_details.get(&player_detail.team).map(|t| t.name.clone()).unwrap(),
                     player_detail.to_owned(),
-                    image.clone(),
+                    picker.clone(),
                 );
+                let player_code = player_detail.code;
                 match (p.position, player_detail.element_type) {
-                    (12 | 13 | 14 | 15, _) => li.4.push(pc),
-                    (_, 1) => li.0.push(pc),
-                    (_, 2) => li.1.push(pc),
-                    (_, 3) => li.2.push(pc),
-                    (_, 4) => li.3.push(pc),
+                    (12 | 13 | 14 | 15, _) => {
+                        li.5.insert(player_code, (4, li.4.len()));
+                        li.4.push(pc);
+                    },
+                    (_, 1) => {
+                        li.5.insert(player_code, (0, li.0.len()));
+                        li.0.push(pc);
+                    },
+                    (_, 2) => {
+                        li.5.insert(player_code, (1, li.1.len()));
+                        li.1.push(pc);
+                    },
+                    (_, 3) => {
+                        li.5.insert(player_code, (2, li.2.len()));
+                        li.2.push(pc)
+                    },
+                    (_, 4) => {
+                        li.5.insert(player_code, (3, li.3.len()));
+                        li.3.push(pc)
+                    },
                     _ => (),
                 };
                 li
-            });
+            },
+        );
         let active_player_coordinate = (0, 0);
         Home {
             command_tx: None,
@@ -74,6 +99,7 @@ impl Home {
                 Players::new("Forwards".to_string(), picked_players.3),
                 Players::new("Bench".to_string(), picked_players.4),
             ],
+            pc_to_picked_players: picked_players.5,
             manager_summary: ManagerSummary::new(manager),
             active_player_coordinate,
             show_player_big: false,
@@ -107,6 +133,12 @@ impl Component for Home {
         let r = match event {
             Some(Event::Key(key_event)) => self.handle_key_events(key_event)?,
             Some(Event::Mouse(mouse_event)) => self.handle_mouse_events(mouse_event)?,
+            Some(Event::PlayerImage(pc, image)) => {
+                if let Some(cord) = self.pc_to_picked_players.get(&pc) {
+                    self.picked_players[cord.0].players.get_mut(cord.1).unwrap().set_image(image.clone());
+                }
+                None
+            },
             _ => None,
         };
         Ok(r)
@@ -116,7 +148,17 @@ impl Component for Home {
         match key.code {
             KeyCode::Enter => {
                 self.show_player_big = true;
-                Ok(None)
+                let coordinate = self.active_player_coordinate;
+                if let Some(current_player) = self.picked_players[coordinate.0].players.get(coordinate.1) {
+                    if !current_player.has_image() {
+                        let pc = current_player.details.code;
+                        Ok(Some(Action::GetPlayerImage(pc)))
+                    } else {
+                        Ok(None)
+                    }
+                } else {
+                    Ok(None)
+                }
             },
             KeyCode::Esc => {
                 self.show_player_big = false;
@@ -213,12 +255,11 @@ impl Component for Home {
         if self.show_player_big {
             let card_layout =
                 Layout::default().constraints([Constraint::Percentage(100)]).margin(4).split(overall_layout[1])[0];
-            let mut bw = self.picked_players[self.active_player_coordinate.0]
+            self.picked_players[self.active_player_coordinate.0]
                 .players
-                .get(self.active_player_coordinate.1)
+                .get_mut(self.active_player_coordinate.1)
                 .unwrap()
-                .get_player_big_widget();
-            bw.draw(f, card_layout)?;
+                .draw_big(f, card_layout)?;
         }
         Ok(())
     }
