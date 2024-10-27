@@ -77,7 +77,6 @@ impl PlayerCard {
             Line::from(format!("Points: {}", self.details.event_points)),
             Line::from(format!("Total Goals: {}", self.details.goals_scored)),
             Line::from(format!("Total Assists: {}", self.details.assists)),
-            // Line::from(format!("{:x?}", self.debug)),
         ])
         .alignment(Alignment::Center);
 
@@ -135,10 +134,19 @@ impl Component for PlayerCard {
             .border_type(border_type)
             .padding(Padding::new(0, 0, 1, 0))
             .border_style(Style::default().fg(Color::Indexed(color_idx as u8)));
+        let mut name_details =
+            vec![Span::styled(self.name.clone(), Style::default().bg(Color::Indexed(127 as u8)).fg(Color::White))];
+        match self.details.status.as_str() {
+            "d" => name_details.push(Span::from("🚩")),
+            "i" => name_details.push(Span::from("⚠️")),
+            _ => {},
+        };
+
         let p = Paragraph::new(vec![
-            Line::styled(self.name.clone(), Style::default().bg(Color::Indexed(127 as u8)).fg(Color::White)),
+            Line::from(name_details),
             Line::raw(self.team.clone()),
             Line::from(format!("Points: {}", self.details.event_points)),
+            Line::from(format!("Status: {}", self.details.status)),
         ])
         .alignment(Alignment::Center)
         .block(b);
