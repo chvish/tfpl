@@ -2,7 +2,11 @@ use color_eyre::eyre::Result;
 use fpl_api::bootstrap::Element;
 use image::DynamicImage;
 use ratatui::{prelude::*, widgets::*};
-use ratatui_image::{picker::Picker, protocol::StatefulProtocol, Image, StatefulImage};
+use ratatui_image::{
+    picker::Picker,
+    protocol::{Protocol, StatefulProtocol},
+    Image, StatefulImage,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::error::Category;
 use tokio::sync::mpsc::UnboundedSender;
@@ -21,12 +25,19 @@ pub struct PlayerCard {
     pub details: Element,
     is_active: bool,
     image_picker: Option<Picker>,
-    image_state: Option<Box<dyn StatefulProtocol>>,
+    image_state: Option<StatefulProtocol>,
+    team_image_state: Option<StatefulProtocol>,
     debug: Vec<u8>,
 }
 
 impl PlayerCard {
-    pub fn new(name: String, team: String, details: Element, image_picker: Option<Picker>) -> Self {
+    pub fn new(
+        name: String,
+        team: String,
+        details: Element,
+        image_picker: Option<Picker>,
+        team_image_state: Option<StatefulProtocol>,
+    ) -> Self {
         PlayerCard {
             command_tx: None,
             config: Default::default(),
@@ -36,6 +47,7 @@ impl PlayerCard {
             is_active: false,
             image_picker,
             image_state: None,
+            team_image_state,
             debug: Vec::new(),
         }
     }
@@ -45,7 +57,7 @@ impl PlayerCard {
     }
 
     pub fn set_image(&mut self, image: DynamicImage) {
-        if let Some(mut pc) = self.image_picker {
+        if let Some(pc) = self.image_picker.as_mut() {
             let protocol = pc.new_resize_protocol(image);
             self.image_state = Some(protocol);
         }
@@ -53,8 +65,8 @@ impl PlayerCard {
 
     pub fn has_image(&self) -> bool {
         // TODO: figure out why state is being shared
-        false
-        // self.image_state.is_some()
+        // false
+        self.image_state.is_some()
     }
 }
 
@@ -77,6 +89,9 @@ impl PlayerCard {
             Line::from(format!("Points: {}", self.details.event_points)),
             Line::from(format!("Total Goals: {}", self.details.goals_scored)),
             Line::from(format!("Total Assists: {}", self.details.assists)),
+            Line::from(format!("EP this: {}", self.details.ep_this)),
+            Line::from(format!("EP next : {}", self.details.ep_next)),
+            Line::from(format!("Bonus: {}", self.details.bonus)),
         ])
         .alignment(Alignment::Center);
 
@@ -118,9 +133,13 @@ impl Component for PlayerCard {
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
         let layouts = Layout::default()
+            .constraints([Constraint::Length(1), Constraint::Percentage(30), Constraint::Percentage(70)])
             .direction(Direction::Vertical)
-            .constraints([Constraint::Fill(1), Constraint::Min(3)])
             .split(area);
+        let image_layput = Layout::default()
+            .constraints([Constraint::Fill(1), Constraint::Length(6), Constraint::Fill(1)])
+            .direction(Direction::Horizontal)
+            .split(layouts[1])[1];
         let color_idx = match self.is_active {
             true => 127u8,
             false => 255u8,
@@ -137,20 +156,27 @@ impl Component for PlayerCard {
         let mut name_details =
             vec![Span::styled(self.name.clone(), Style::default().bg(Color::Indexed(127 as u8)).fg(Color::White))];
         match self.details.status.as_str() {
-            "d" => name_details.push(Span::from("🚩")),
-            "i" => name_details.push(Span::from("⚠️")),
+            "i" => name_details.push(Span::from("🚩")),
+            "d" => name_details.push(Span::from("⚠️")),
             _ => {},
         };
 
         let p = Paragraph::new(vec![
             Line::from(name_details),
-            Line::raw(self.team.clone()),
+            // Line::raw(self.team.clone()),
             Line::from(format!("Points: {}", self.details.event_points)),
-            Line::from(format!("Status: {}", self.details.status)),
         ])
         .alignment(Alignment::Center)
         .block(b);
-        f.render_widget(p, area);
+
+        f.render_widget(p, layouts[2]);
+        match self.team_image_state.as_mut() {
+            Some(image) => {
+                let s_image = StatefulImage::new(None).resize(ratatui_image::Resize::Crop(None));
+                f.render_stateful_widget(s_image, image_layput, image);
+            },
+            _ => (),
+        }
 
         Ok(())
     }

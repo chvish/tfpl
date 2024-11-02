@@ -1,12 +1,14 @@
+use std::collections::HashMap;
+
 use color_eyre::eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use fpl_api;
 use ratatui::prelude::Rect;
-use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage, picker::ProtocolType};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
-use image::io::Reader;
+use image::ImageReader;
 use image::DynamicImage;
 use bytes::Bytes; 
 
@@ -33,17 +35,15 @@ pub struct App {
 }
 
 fn decode_bytes_to_image(data: Bytes) -> Result<DynamicImage, image::ImageError> {
-    Reader::new(std::io::Cursor::new(data)).with_guessed_format()?.decode()
+    ImageReader::new(std::io::Cursor::new(data)).with_guessed_format()?.decode()
 }
 
 async fn get_player_image(pc: i64, tx: UnboundedSender<Event>)  {
-    //let dyn_img = image::ImageReader::open("./p223094.png").unwrap().decode().unwrap();
-    // tx.send(Event::PlayerImage(pc, dyn_img));
     let resp = reqwest::get(format!("https://resources.premierleague.com/premierleague/photos/players/110x140/p{}.png", pc)).await;
     if let Ok(ok_resp) = resp {
         if let Ok(bytes) = ok_resp.bytes().await {
             if let Ok(image) = decode_bytes_to_image(bytes) {
-                tx.send(Event::PlayerImage(pc, image));
+                let _ = tx.send(Event::PlayerImage(pc, image));
             }
         }
     } 
@@ -51,12 +51,12 @@ async fn get_player_image(pc: i64, tx: UnboundedSender<Event>)  {
 
 #[cfg(unix)]
 fn get_picker() -> Option<Picker> {
-    Picker::from_termios()
+    Picker::from_query_stdio()
         .ok()
-        .map(|mut picker| {
-            picker.guess_protocol();
-            picker
-        })
+        // .map(|mut picker| {
+        //     picker.guess_protocol();
+        //     picker
+        // })
         // .filter(|picker| picker.protocol_type != ProtocolType::Halfblocks)
 }
 
@@ -112,22 +112,26 @@ impl App {
         let fpl_client = fpl_api::FPLClient::new();
         let bootstrap_data = fpl_client.get_bootstrap_data().await?;
         let manager = fpl_client.get_manager_details(&player_id).await?;
+        let fixtures = fpl_client.get_fixtures().await?;
         let gw_picks = fpl_client.get_manager_team_for_gw(&player_id, &manager.current_event.to_string()).await?;
+        let mut ti = HashMap::new();
+        for i in 1..100 {
+           // let dyn_image =ImageReader::open(format!("./assets/t{}@x2.png", i))?.decode()?;
+           match ImageReader::open(format!("./assets/t{}@x2.png", i)).ok() {
+               None => (),
+               Some(imf) => {
+                   let dy = imf.decode()?;
+                    ti.insert(i, dy);
+               }
+               
+           }
+        }
 
-        let mut picker = get_picker(); 
-
-        // TODO
-        // Load an image with the image crate.
-        // let dyn_img = image::ImageReader::open("./p223094.png")?.decode()?;
-
-        // // Create the Protocol which will be used by the widget.
-        // let mut image2 = picker.map( |p| p.new_resize_protocol(dyn_img));
-
-        let home = Home::new(manager, bootstrap_data.clone(), gw_picks, picker);
+        let home = Home::new(manager, bootstrap_data.clone(), gw_picks, fixtures, get_picker(), ti);
         Ok(Self {
             tick_rate,
             frame_rate,
-            components: vec![Box::new(home), Box::new(fps)],
+            components: vec![Box::new(home)],
             should_quit: false,
             should_suspend: false,
             config,
@@ -202,7 +206,7 @@ impl App {
                         tui.resize(Rect::new(0, 0, w, h))?;
                         tui.draw(|f| {
                             for component in self.components.iter_mut() {
-                                let r = component.draw(f, f.size());
+                                let r = component.draw(f, f.area());
                                 if let Err(e) = r {
                                     action_tx.send(Action::Error(format!("Failed to draw: {:?}", e))).unwrap();
                                 }
@@ -212,7 +216,7 @@ impl App {
                     Action::Render => {
                         tui.draw(|f| {
                             for component in self.components.iter_mut() {
-                                let r = component.draw(f, f.size());
+                                let r = component.draw(f, f.area());
                                 if let Err(e) = r {
                                     action_tx.send(Action::Error(format!("Failed to draw: {:?}", e))).unwrap();
                                 }

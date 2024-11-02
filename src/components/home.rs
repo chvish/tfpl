@@ -2,6 +2,8 @@ use std::{collections::HashMap, time::Duration};
 
 use color_eyre::eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
+use fpl_api::fixture::Fixtures;
+use image::DynamicImage;
 use ratatui::{layout::Flex, prelude::*, widgets::*};
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
 use serde::{Deserialize, Serialize};
@@ -23,6 +25,7 @@ pub struct Home {
     picked_players: [Players; 5],
     pc_to_picked_players: HashMap<i64, (usize, usize)>,
     manager_summary: ManagerSummary,
+    fixtures: Fixtures,
     active_player_coordinate: (usize, usize),
     show_player_big: bool,
 }
@@ -32,7 +35,9 @@ impl Home {
         manager: fpl_api::manager::Manager,
         bootstrap_data: fpl_api::bootstrap::BootstrapData,
         gw_picks: fpl_api::manager::GWTeam,
-        picker: Option<Picker>,
+        fixtures: Fixtures,
+        mut picker: Option<Picker>,
+        team_to_badge: HashMap<i64, DynamicImage>,
     ) -> Self {
         let player_id_to_details: HashMap<i64, fpl_api::bootstrap::Element> =
             bootstrap_data.elements.iter().fold(HashMap::new(), |mut m, p| {
@@ -44,6 +49,7 @@ impl Home {
                 m.insert(p.id, p.clone());
                 m
             });
+        // fixtures.get(0).map(|f| f.event)
         let picked_players: (
             Vec<PlayerCard>,
             Vec<PlayerCard>,
@@ -60,6 +66,12 @@ impl Home {
                     team_id_to_details.get(&player_detail.team).map(|t| t.name.clone()).unwrap(),
                     player_detail.to_owned(),
                     picker.clone(),
+                    match picker.as_mut() {
+                        None => None,
+                        Some(p) => {
+                            team_to_badge.get(&player_detail.team_code).map(|d| p.new_resize_protocol(d.clone()))
+                        },
+                    },
                 );
                 let player_code = player_detail.code;
                 match (p.position, player_detail.element_type) {
@@ -101,6 +113,7 @@ impl Home {
             ],
             pc_to_picked_players: picked_players.5,
             manager_summary: ManagerSummary::new(manager),
+            fixtures,
             active_player_coordinate,
             show_player_big: false,
         }
@@ -230,8 +243,8 @@ impl Component for Home {
         f.render_widget(Block::new().borders(Borders::ALL), left_layout[0]);
         let banner =
             BigTextBuilder::default().pixel_size(PixelSize::Sextant).lines(vec!["tfpl".into()]).centered().build();
-        f.render_widget(banner, left_layout[0]);
-        f.render_widget(Paragraph::new("FPL, in the terminal!").centered(), tagline_layout[1]);
+        banner.render(left_layout[0], f.buffer_mut());
+        // f.render_widget(banner, left_layout[0]);
         let layouts = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
