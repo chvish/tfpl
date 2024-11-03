@@ -21,11 +21,14 @@ use crate::{
 pub struct Home {
     command_tx: Option<UnboundedSender<Action>>,
     config: Config,
+
     // TODO: do i need this? can just keep a vector of players
     picked_players: [Players; 5],
-    pc_to_picked_players: HashMap<i64, (usize, usize)>,
+    player_code_to_player: HashMap<i64, (usize, usize)>,
     manager_summary: ManagerSummary,
     fixtures: Fixtures,
+
+    // UI state
     active_player_coordinate: (usize, usize),
     show_player_big: bool,
 }
@@ -111,7 +114,7 @@ impl Home {
                 Players::new("Forwards".to_string(), picked_players.3),
                 Players::new("Bench".to_string(), picked_players.4),
             ],
-            pc_to_picked_players: picked_players.5,
+            player_code_to_player: picked_players.5,
             manager_summary: ManagerSummary::new(manager),
             fixtures,
             active_player_coordinate,
@@ -147,7 +150,7 @@ impl Component for Home {
             Some(Event::Key(key_event)) => self.handle_key_events(key_event)?,
             Some(Event::Mouse(mouse_event)) => self.handle_mouse_events(mouse_event)?,
             Some(Event::PlayerImage(pc, image)) => {
-                if let Some(cord) = self.pc_to_picked_players.get(&pc) {
+                if let Some(cord) = self.player_code_to_player.get(&pc) {
                     self.picked_players[cord.0].players.get_mut(cord.1).unwrap().set_image(image.clone());
                 }
                 None

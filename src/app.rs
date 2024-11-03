@@ -1,22 +1,24 @@
 use std::collections::HashMap;
 
+use bytes::Bytes;
 use color_eyre::eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use fpl_api;
+use image::{DynamicImage, ImageReader};
 use ratatui::prelude::Rect;
-use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage, picker::ProtocolType};
+use ratatui_image::{
+    picker::{Picker, ProtocolType},
+    protocol::StatefulProtocol,
+    StatefulImage,
+};
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
-use tokio::sync::mpsc::UnboundedSender;
-use image::ImageReader;
-use image::DynamicImage;
-use bytes::Bytes; 
+use tokio::sync::{mpsc, mpsc::UnboundedSender};
 
 use crate::{
     action::Action,
-    event::Event,
     components::{fps::FpsCounter, home::Home, Component},
     config::Config,
+    event::Event,
     mode::Mode,
     tui,
 };
@@ -38,32 +40,27 @@ fn decode_bytes_to_image(data: Bytes) -> Result<DynamicImage, image::ImageError>
     ImageReader::new(std::io::Cursor::new(data)).with_guessed_format()?.decode()
 }
 
-async fn get_player_image(pc: i64, tx: UnboundedSender<Event>)  {
-    let resp = reqwest::get(format!("https://resources.premierleague.com/premierleague/photos/players/110x140/p{}.png", pc)).await;
+async fn get_player_image(pc: i64, tx: UnboundedSender<Event>) {
+    let resp =
+        reqwest::get(format!("https://resources.premierleague.com/premierleague/photos/players/110x140/p{}.png", pc))
+            .await;
     if let Ok(ok_resp) = resp {
         if let Ok(bytes) = ok_resp.bytes().await {
             if let Ok(image) = decode_bytes_to_image(bytes) {
                 let _ = tx.send(Event::PlayerImage(pc, image));
             }
         }
-    } 
+    }
 }
 
 #[cfg(unix)]
 fn get_picker() -> Option<Picker> {
-    Picker::from_query_stdio()
-        .ok()
-        // .map(|mut picker| {
-        //     picker.guess_protocol();
-        //     picker
-        // })
-        // .filter(|picker| picker.protocol_type != ProtocolType::Halfblocks)
+    Picker::from_query_stdio().ok()
 }
 
 #[cfg(target_os = "windows")]
 fn get_picker() -> Option<Picker> {
-    use windows_sys::Win32::System::Console::GetConsoleWindow;
-    use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
+    use windows_sys::Win32::{System::Console::GetConsoleWindow, UI::HiDpi::GetDpiForWindow};
 
     struct FontSize {
         pub width: u16,
@@ -71,26 +68,14 @@ fn get_picker() -> Option<Picker> {
     }
     impl Default for FontSize {
         fn default() -> Self {
-            FontSize {
-                width: 17,
-                height: 38,
-            }
+            FontSize { width: 17, height: 38 }
         }
     }
 
     let size: FontSize = match unsafe { GetDpiForWindow(GetConsoleWindow()) } {
-        96 => FontSize {
-            width: 9,
-            height: 20,
-        },
-        120 => FontSize {
-            width: 12,
-            height: 25,
-        },
-        144 => FontSize {
-            width: 14,
-            height: 32,
-        },
+        96 => FontSize { width: 9, height: 20 },
+        120 => FontSize { width: 12, height: 25 },
+        144 => FontSize { width: 14, height: 32 },
         _ => FontSize::default(),
     };
 
@@ -114,19 +99,7 @@ impl App {
         let manager = fpl_client.get_manager_details(&player_id).await?;
         let fixtures = fpl_client.get_fixtures().await?;
         let gw_picks = fpl_client.get_manager_team_for_gw(&player_id, &manager.current_event.to_string()).await?;
-        let mut ti = HashMap::new();
-        for i in 1..100 {
-           // let dyn_image =ImageReader::open(format!("./assets/t{}@x2.png", i))?.decode()?;
-           match ImageReader::open(format!("./assets/t{}@x2.png", i)).ok() {
-               None => (),
-               Some(imf) => {
-                   let dy = imf.decode()?;
-                    ti.insert(i, dy);
-               }
-               
-           }
-        }
-
+        let ti = Self::load_team_images().await?;
         let home = Home::new(manager, bootstrap_data.clone(), gw_picks, fixtures, get_picker(), ti);
         Ok(Self {
             tick_rate,
@@ -197,10 +170,7 @@ impl App {
                     Action::Resume => self.should_suspend = false,
                     Action::GetPlayerImage(player_code) => {
                         let task_event = event_tx.clone();
-                        tokio::spawn(
-                            get_player_image(player_code, task_event)
-
-                        );
+                        tokio::spawn(get_player_image(player_code, task_event));
                     },
                     Action::Resize(w, h) => {
                         tui.resize(Rect::new(0, 0, w, h))?;
@@ -244,5 +214,19 @@ impl App {
         }
         tui.exit()?;
         Ok(())
+    }
+
+    async fn load_team_images() -> Result<HashMap<i64, DynamicImage>> {
+        let mut ti = HashMap::new();
+        for i in 1..100 {
+            match ImageReader::open(format!("./assets/t{}@x2.png", i)).ok() {
+                None => (),
+                Some(imf) => {
+                    let dy = imf.decode()?;
+                    ti.insert(i, dy);
+                },
+            }
+        }
+        Ok(ti)
     }
 }
