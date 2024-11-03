@@ -79,10 +79,7 @@ impl Component for Players {
     }
 
     fn update(&mut self, action: Action) -> Result<Option<Action>> {
-        match action {
-            Action::Tick => {},
-            _ => {},
-        }
+        action == Action::Tick;
         Ok(None)
     }
 
@@ -91,7 +88,7 @@ impl Component for Players {
         let player_layout =
             Layout::default().direction(Direction::Horizontal).constraints(design.0).margin(1).split(area);
         for i in 0..self.players.len() {
-            let given_by_layput = player_layout[design.1 + i as usize];
+            let given_by_layput = player_layout[design.1 + i];
             let pa = Rect::new(given_by_layput.x, area.y, given_by_layput.width, area.height);
             self.players[i].draw(f, pa)?;
         }

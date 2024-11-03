@@ -27,7 +27,7 @@ impl ManagerSummary {
 
     pub fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
         let p = Paragraph::new(vec![
-            Line::styled(self.details.name.clone(), Style::default().bg(Color::Indexed(127 as u8)).fg(Color::White)),
+            Line::styled(self.details.name.clone(), Style::default().bg(Color::Indexed(127_u8)).fg(Color::White)),
             Line::from(format!(
                 "({} {}, {})",
                 &self.details.player_first_name,
@@ -36,12 +36,12 @@ impl ManagerSummary {
             )),
             Line::from("-------------------------"),
             Line::from(format!("Overall Rank: {}", self.details.summary_overall_rank.separate_with_commas())),
-            Line::from(format!("Overall Points: {}", self.details.summary_overall_points.to_string())),
+            Line::from(format!("Overall Points: {}", self.details.summary_overall_points)),
             Line::from("-------------------------"),
             Line::from(format!("GW Rank: {}", self.details.summary_event_rank.get_or_insert(0).separate_with_commas())),
             Line::styled(
-                format!("GW Points: {}", self.details.summary_event_points.to_string()),
-                Style::default().bg(Color::Indexed(125 as u8)),
+                format!("GW Points: {}", self.details.summary_event_points),
+                Style::default().bg(Color::Indexed(125_u8)),
             ),
         ])
         .block(Block::default().borders(Borders::ALL).padding(Padding::new(0, 0, 5, 5)))

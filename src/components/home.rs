@@ -68,7 +68,7 @@ impl Home {
                     format!("{} {}", player_detail.first_name, player_detail.second_name),
                     team_id_to_details.get(&player_detail.team).map(|t| t.name.clone()).unwrap(),
                     player_detail.to_owned(),
-                    picker.clone(),
+                    picker,
                     match picker.as_mut() {
                         None => None,
                         Some(p) => {
@@ -78,7 +78,7 @@ impl Home {
                 );
                 let player_code = player_detail.code;
                 match (p.position, player_detail.element_type) {
-                    (12 | 13 | 14 | 15, _) => {
+                    (12..=15, _) => {
                         li.5.insert(player_code, (4, li.4.len()));
                         li.4.push(pc);
                     },
@@ -123,7 +123,7 @@ impl Home {
     }
 
     fn mark_player_active_state(&mut self, coordinate: (usize, usize), state: bool) {
-        self.picked_players[coordinate.0].players.get_mut(coordinate.1).map(|x| x.mark_active(state));
+        if let Some(x) = self.picked_players[coordinate.0].players.get_mut(coordinate.1) { x.mark_active(state) }
     }
 
     fn update_player_active(&mut self, old: (usize, usize)) {
@@ -224,9 +224,7 @@ impl Component for Home {
     }
 
     fn update(&mut self, action: Action) -> Result<Option<Action>> {
-        match action {
-            _ => {},
-        }
+        {}
         Ok(None)
     }
 

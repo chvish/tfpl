@@ -143,10 +143,7 @@ impl App {
                     Event::Render => action_tx.send(Action::Render)?,
                     Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
                     Event::Key(key) => {
-                        match key.code {
-                            KeyCode::Char('q') => action_tx.send(Action::Quit)?,
-                            _ => {},
-                        }
+                        if let KeyCode::Char('q') = key.code { action_tx.send(Action::Quit)? }
                     },
                     _ => {},
                 }

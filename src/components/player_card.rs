@@ -84,7 +84,7 @@ impl PlayerCard {
         // TODO
         let block = Block::default().borders(Borders::ALL).border_set(symbols::border::DOUBLE);
         let p = Paragraph::new(vec![
-            Line::styled(format!("{}", self.name), Style::default().bg(Color::Indexed(127 as u8)).fg(Color::White)),
+            Line::styled(self.name.to_string(), Style::default().bg(Color::Indexed(127_u8)).fg(Color::White)),
             Line::raw(self.team.clone()),
             Line::from(format!("Points: {}", self.details.event_points)),
             Line::from(format!("Total Goals: {}", self.details.goals_scored)),
@@ -98,13 +98,10 @@ impl PlayerCard {
         f.render_widget(p, layouts[2]);
         f.render_widget(block, area);
 
-        match self.image_state.as_mut() {
-            Some(image) => {
-                let s_image = StatefulImage::new(None).resize(ratatui_image::Resize::Crop(None));
-                StatefulWidget::render(s_image, image_layput, f.buffer_mut(), image);
-                // f.render_stateful_widget(s_image, image_layput, image);
-            },
-            _ => (),
+        if let Some(image) = self.image_state.as_mut() {
+            let s_image = StatefulImage::new(None).resize(ratatui_image::Resize::Crop(None));
+            StatefulWidget::render(s_image, image_layput, f.buffer_mut(), image);
+            // f.render_stateful_widget(s_image, image_layput, image);
         }
 
         // TODO
@@ -124,10 +121,7 @@ impl Component for PlayerCard {
     }
 
     fn update(&mut self, action: Action) -> Result<Option<Action>> {
-        match action {
-            Action::Tick => {},
-            _ => {},
-        }
+        action == Action::Tick;
         Ok(None)
     }
 
@@ -152,9 +146,9 @@ impl Component for PlayerCard {
             .borders(Borders::ALL)
             .border_type(border_type)
             .padding(Padding::new(0, 0, 1, 0))
-            .border_style(Style::default().fg(Color::Indexed(color_idx as u8)));
+            .border_style(Style::default().fg(Color::Indexed(color_idx)));
         let mut name_details =
-            vec![Span::styled(self.name.clone(), Style::default().bg(Color::Indexed(127 as u8)).fg(Color::White))];
+            vec![Span::styled(self.name.clone(), Style::default().bg(Color::Indexed(127_u8)).fg(Color::White))];
         match self.details.status.as_str() {
             "i" => name_details.push(Span::from("🚩")),
             "d" => name_details.push(Span::from("⚠️")),
@@ -170,12 +164,9 @@ impl Component for PlayerCard {
         .block(b);
 
         f.render_widget(p, layouts[2]);
-        match self.team_image_state.as_mut() {
-            Some(image) => {
-                let s_image = StatefulImage::new(None).resize(ratatui_image::Resize::Crop(None));
-                f.render_stateful_widget(s_image, image_layput, image);
-            },
-            _ => (),
+        if let Some(image) = self.team_image_state.as_mut() {
+            let s_image = StatefulImage::new(None).resize(ratatui_image::Resize::Crop(None));
+            f.render_stateful_widget(s_image, image_layput, image);
         }
 
         Ok(())
