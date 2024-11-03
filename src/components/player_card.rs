@@ -27,6 +27,7 @@ pub struct PlayerCard {
     image_picker: Option<Picker>,
     image_state: Option<StatefulProtocol>,
     team_image_state: Option<StatefulProtocol>,
+    pub position: i64,
     debug: Vec<u8>,
 }
 
@@ -37,6 +38,7 @@ impl PlayerCard {
         details: Element,
         image_picker: Option<Picker>,
         team_image_state: Option<StatefulProtocol>,
+        position: i64,
     ) -> Self {
         PlayerCard {
             command_tx: None,
@@ -48,6 +50,7 @@ impl PlayerCard {
             image_picker,
             image_state: None,
             team_image_state,
+            position,
             debug: Vec::new(),
         }
     }

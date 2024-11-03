@@ -34,12 +34,72 @@ pub struct Home {
 }
 
 impl Home {
+    fn organise_players(
+        gw_picks: fpl_api::manager::GWTeam,
+        player_id_to_details: HashMap<i64, fpl_api::bootstrap::Element>,
+        team_id_to_details: HashMap<i64, fpl_api::bootstrap::Team>,
+        mut picker: Option<Picker>,
+        team_to_badge: HashMap<i64, DynamicImage>,
+    ) -> [Players; 5] {
+        let mut picked_player_cards: Vec<PlayerCard> = gw_picks
+            .picks
+            .iter()
+            .map(|p| {
+                let player_detail = player_id_to_details.get(&p.element).unwrap(); // TODO: handle. but should never happen
+                PlayerCard::new(
+                    format!("{} {}", player_detail.first_name, player_detail.second_name),
+                    team_id_to_details.get(&player_detail.team).map(|t| t.name.clone()).unwrap(),
+                    player_detail.to_owned(),
+                    picker,
+                    match picker.as_mut() {
+                        None => None,
+                        Some(p) => {
+                            team_to_badge.get(&player_detail.team_code).map(|d| p.new_resize_protocol(d.clone()))
+                        },
+                    },
+                    p.position,
+                )
+            })
+            .collect();
+
+        let mut organised_players = [
+            Players::new("Goalkeepers".to_string(), Vec::new()),
+            Players::new("Defenders".to_string(), Vec::new()),
+            Players::new("Midfielders".to_string(), Vec::new()),
+            Players::new("Forwards".to_string(), Vec::new()),
+            Players::new("Bench".to_string(), Vec::new()),
+        ];
+
+        while let Some(pc) = picked_player_cards.pop() {
+            let player_code = pc.details.code;
+            match (pc.position, pc.details.element_type) {
+                (12..=15, _) => {
+                    organised_players[4].players.push(pc);
+                },
+                (_, 1) => {
+                    organised_players[0].players.push(pc);
+                },
+                (_, 2) => {
+                    organised_players[1].players.push(pc);
+                },
+                (_, 3) => {
+                    organised_players[2].players.push(pc);
+                },
+                (_, 4) => {
+                    organised_players[3].players.push(pc);
+                },
+                _ => (),
+            };
+        }
+        organised_players
+    }
+
     pub fn new(
         manager: fpl_api::manager::Manager,
         bootstrap_data: fpl_api::bootstrap::BootstrapData,
         gw_picks: fpl_api::manager::GWTeam,
         fixtures: Fixtures,
-        mut picker: Option<Picker>,
+        picker: Option<Picker>,
         team_to_badge: HashMap<i64, DynamicImage>,
     ) -> Self {
         let player_id_to_details: HashMap<i64, fpl_api::bootstrap::Element> =
@@ -52,69 +112,20 @@ impl Home {
                 m.insert(p.id, p.clone());
                 m
             });
-        // fixtures.get(0).map(|f| f.event)
-        let picked_players: (
-            Vec<PlayerCard>,
-            Vec<PlayerCard>,
-            Vec<PlayerCard>,
-            Vec<PlayerCard>,
-            Vec<PlayerCard>,
-            HashMap<i64, (usize, usize)>,
-        ) = gw_picks.picks.iter().fold(
-            (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), HashMap::new()),
-            |mut li, p| {
-                let player_detail = player_id_to_details.get(&p.element).unwrap(); // TODO: handle. but should never happen
-                let pc = PlayerCard::new(
-                    format!("{} {}", player_detail.first_name, player_detail.second_name),
-                    team_id_to_details.get(&player_detail.team).map(|t| t.name.clone()).unwrap(),
-                    player_detail.to_owned(),
-                    picker,
-                    match picker.as_mut() {
-                        None => None,
-                        Some(p) => {
-                            team_to_badge.get(&player_detail.team_code).map(|d| p.new_resize_protocol(d.clone()))
-                        },
-                    },
-                );
-                let player_code = player_detail.code;
-                match (p.position, player_detail.element_type) {
-                    (12..=15, _) => {
-                        li.5.insert(player_code, (4, li.4.len()));
-                        li.4.push(pc);
-                    },
-                    (_, 1) => {
-                        li.5.insert(player_code, (0, li.0.len()));
-                        li.0.push(pc);
-                    },
-                    (_, 2) => {
-                        li.5.insert(player_code, (1, li.1.len()));
-                        li.1.push(pc);
-                    },
-                    (_, 3) => {
-                        li.5.insert(player_code, (2, li.2.len()));
-                        li.2.push(pc)
-                    },
-                    (_, 4) => {
-                        li.5.insert(player_code, (3, li.3.len()));
-                        li.3.push(pc)
-                    },
-                    _ => (),
-                };
-                li
-            },
-        );
+        let organised_players =
+            Self::organise_players(gw_picks, player_id_to_details, team_id_to_details, picker, team_to_badge);
+        let mut player_code_to_player = HashMap::new();
+        for (i, p) in organised_players.iter().enumerate() {
+            for (j, pc) in p.players.iter().enumerate() {
+                player_code_to_player.insert(pc.details.code, (i, j));
+            }
+        }
         let active_player_coordinate = (0, 0);
         Home {
             command_tx: None,
             config: Default::default(),
-            picked_players: [
-                Players::new("Goalkeepers".to_string(), picked_players.0),
-                Players::new("Defenders".to_string(), picked_players.1),
-                Players::new("Midfielders".to_string(), picked_players.2),
-                Players::new("Forwards".to_string(), picked_players.3),
-                Players::new("Bench".to_string(), picked_players.4),
-            ],
-            player_code_to_player: picked_players.5,
+            picked_players: organised_players,
+            player_code_to_player,
             manager_summary: ManagerSummary::new(manager),
             fixtures,
             active_player_coordinate,
@@ -123,7 +134,9 @@ impl Home {
     }
 
     fn mark_player_active_state(&mut self, coordinate: (usize, usize), state: bool) {
-        if let Some(x) = self.picked_players[coordinate.0].players.get_mut(coordinate.1) { x.mark_active(state) }
+        if let Some(x) = self.picked_players[coordinate.0].players.get_mut(coordinate.1) {
+            x.mark_active(state)
+        }
     }
 
     fn update_player_active(&mut self, old: (usize, usize)) {
@@ -244,8 +257,7 @@ impl Component for Home {
         f.render_widget(Block::new().borders(Borders::ALL), left_layout[0]);
         let banner =
             BigTextBuilder::default().pixel_size(PixelSize::Sextant).lines(vec!["tfpl".into()]).centered().build();
-        banner.render(left_layout[0], f.buffer_mut());
-        // f.render_widget(banner, left_layout[0]);
+        f.render_widget(banner, left_layout[0]);
         let layouts = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -264,7 +276,6 @@ impl Component for Home {
             self.picked_players[i - 1].draw(f, layouts[i])?;
         }
         self.manager_summary.draw(f, left_layout[1])?;
-        // f.render_widget(Block::new().borders(Borders::ALL).title("Bench"), layouts[4]);
 
         if self.show_player_big {
             let card_layout =
